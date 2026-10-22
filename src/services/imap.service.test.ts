@@ -1503,6 +1503,134 @@ describe('ImapService', () => {
   });
 
   // -----------------------------------------------------------------------
+  // downloadRawEmail / downloadRawEmailToDownloadDir
+  // -----------------------------------------------------------------------
+
+  describe('downloadRawEmail', () => {
+    const RAW = 'From: a@example.test\r\nSubject: hi\r\n\r\nbody\r\n';
+
+    function mockRawMessage(source: string) {
+      client.fetchOne
+        .mockResolvedValueOnce({ uid: 42, size: Buffer.byteLength(source) })
+        .mockResolvedValueOnce({ uid: 42, source: Buffer.from(source) });
+    }
+
+    it('returns the full RFC 822 source byte for byte', async () => {
+      mockRawMessage(RAW);
+
+      const result = await service.downloadRawEmail('test', '42', 'INBOX');
+
+      expect(result.content.toString()).toBe(RAW);
+      expect(result.size).toBe(Buffer.byteLength(RAW));
+    });
+
+    it('refuses an over-cap message before fetching its source', async () => {
+      client.fetchOne.mockResolvedValueOnce({ uid: 42, size: 2048 });
+
+      await expect(service.downloadRawEmail('test', '42', 'INBOX', 1024)).rejects.toThrow(
+        /exceeds/,
+      );
+      expect(client.fetchOne).toHaveBeenCalledTimes(1);
+    });
+
+    it('enforces the cap on the fetched source when the server omits RFC822.SIZE', async () => {
+      client.fetchOne
+        .mockResolvedValueOnce({ uid: 42 })
+        .mockResolvedValueOnce({ uid: 42, source: Buffer.alloc(2048) });
+
+      await expect(service.downloadRawEmail('test', '42', 'INBOX', 1024)).rejects.toThrow(
+        /exceeds/,
+      );
+    });
+
+    it('reports a missing message', async () => {
+      client.fetchOne.mockResolvedValueOnce(null);
+
+      await expect(service.downloadRawEmail('test', '42', 'INBOX')).rejects.toThrow('not found');
+    });
+
+    describe('to download dir', () => {
+      let downloadDir: string;
+
+      beforeEach(async () => {
+        downloadDir = await fs.realpath(mkdtempSync(join(tmpdir(), 'email-mcp-raw-')));
+      });
+
+      afterEach(() => {
+        rmSync(downloadDir, { recursive: true, force: true });
+      });
+
+      const config = () => ({ dir: downloadDir, allowedExtensions: ['pdf'], maxBytes: 1024 });
+
+      it('writes an .eml named after account, mailbox and uid by default', async () => {
+        mockRawMessage(RAW);
+
+        const result = await service.downloadRawEmailToDownloadDir(
+          'test',
+          '42',
+          'Archive/2026',
+          config(),
+        );
+
+        expect(result.path).toBe(join(downloadDir, 'test-Archive_2026-42.eml'));
+        expect(await fs.readFile(result.path, 'utf-8')).toBe(RAW);
+      });
+
+      it('keeps the .eml extension when account and mailbox names are long', async () => {
+        mockRawMessage(RAW);
+
+        const result = await service.downloadRawEmailToDownloadDir(
+          'test',
+          '42',
+          'x'.repeat(400),
+          config(),
+        );
+
+        expect(result.path.endsWith('.eml')).toBe(true);
+      });
+
+      it('uses the caller-supplied saveAs name', async () => {
+        mockRawMessage(RAW);
+
+        const result = await service.downloadRawEmailToDownloadDir(
+          'test',
+          '42',
+          'INBOX',
+          config(),
+          'sample.eml',
+        );
+
+        expect(result.path).toBe(join(downloadDir, 'sample.eml'));
+      });
+
+      it('rejects a saveAs that is not an .eml', async () => {
+        mockRawMessage(RAW);
+
+        await expect(
+          service.downloadRawEmailToDownloadDir('test', '42', 'INBOX', config(), 'sample.html'),
+        ).rejects.toThrow('not allowed');
+      });
+
+      it('rejects a saveAs that is not a plain basename', async () => {
+        mockRawMessage(RAW);
+
+        await expect(
+          service.downloadRawEmailToDownloadDir('test', '42', 'INBOX', config(), '../x.eml'),
+        ).rejects.toThrow('path separators');
+      });
+
+      it('refuses to run when no download directory is configured', async () => {
+        await expect(
+          service.downloadRawEmailToDownloadDir('test', '42', 'INBOX', {
+            allowedExtensions: ['pdf'],
+            maxBytes: 1024,
+          }),
+        ).rejects.toThrow('not configured');
+      });
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // getCalendarParts
   // -----------------------------------------------------------------------
 

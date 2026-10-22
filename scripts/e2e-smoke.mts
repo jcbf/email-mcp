@@ -150,6 +150,7 @@ await probe('get_email', { account, emailId: firstId, mailbox: 'INBOX', format: 
 await probe('get_email', { account, emailId: firstId, mailbox: 'INBOX', format: 'stripped' });
 await probe('get_emails', { account, ids: [firstId], mailbox: 'INBOX', format: 'text' });
 await probe('get_email_status', { account, emailId: firstId, mailbox: 'INBOX' });
+await probe('download_raw_email', { account, id: firstId, mailbox: 'INBOX' });
 await probe('find_email_folder', { account, emailId: firstId, sourceMailbox: 'INBOX' });
 
 // --- read: aggregate -------------------------------------------------------

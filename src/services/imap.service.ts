@@ -1921,6 +1921,91 @@ export default class ImapService {
   }
 
   // -------------------------------------------------------------------------
+  // Raw message download
+  // -------------------------------------------------------------------------
+
+  /**
+   * Fetch a message's complete RFC 822 source, byte for byte as the server
+   * stores it (headers, MIME boundaries, transfer encodings, attachments).
+   * RFC822.SIZE is probed first so an over-cap message is refused before its
+   * source is transferred at all.
+   */
+  async downloadRawEmail(
+    accountName: string,
+    emailId: string,
+    mailbox: string,
+    maxSizeBytes = 5 * 1024 * 1024,
+  ): Promise<{ size: number; content: Buffer }> {
+    const client = await this.connections.getImapClient(accountName);
+    const uid = String(parseInt(emailId, 10));
+
+    const lock = await ImapService.lockMailbox(client, mailbox);
+    try {
+      const probe = await client.fetchOne(uid, { uid: true, size: true }, { uid: true });
+      if (!probe) {
+        throw new Error(`Email ${emailId} not found in ${mailbox}`);
+      }
+      const assertWithinCap = (size: number) => {
+        if (size > maxSizeBytes) {
+          throw new Error(
+            `Email ${emailId} is ~${(size / 1024 / 1024).toFixed(1)}MB, exceeds ${Math.round(maxSizeBytes / 1024 / 1024)}MB limit`,
+          );
+        }
+      };
+      assertWithinCap(probe.size ?? 0);
+
+      const msg = await client.fetchOne(uid, { uid: true, source: true }, { uid: true });
+      const source = msg ? msg.source : undefined;
+      if (!source) {
+        throw new Error(`Failed to download source of email ${emailId}`);
+      }
+      // A server that omits RFC822.SIZE slips past the probe — check what arrived.
+      assertWithinCap(source.length);
+      return { size: source.length, content: source };
+    } finally {
+      lock.release();
+    }
+  }
+
+  /**
+   * Download a message's raw source and write it as an `.eml` under the
+   * server-configured download directory. Same opt-in and path confinement
+   * as `downloadAttachmentToDownloadDir`, but the extension is always `.eml`
+   * (the attachment allowlist does not apply — the content type is fixed).
+   * Default name is `<account>-<mailbox>-<uid>.eml` so the same UID in two
+   * mailboxes or accounts does not overwrite.
+   */
+  async downloadRawEmailToDownloadDir(
+    accountName: string,
+    emailId: string,
+    mailbox: string,
+    config: AttachmentDownloadConfig,
+    saveAs?: string,
+  ): Promise<{ size: number; path: string }> {
+    if (!config.dir) {
+      throw new Error(
+        'Attachment download directory is not configured (settings.attachment_download.dir)',
+      );
+    }
+    const basename =
+      saveAs !== undefined
+        ? assertSafeDownloadBasename(saveAs)
+        : `${sanitizeAttachmentBasename(
+            `${accountName}-${mailbox}-${parseInt(emailId, 10)}`.replace(/[/\\]/g, '_'),
+          )}.eml`;
+    assertAllowedExtension(basename, ['eml']);
+    const { size, content } = await this.downloadRawEmail(
+      accountName,
+      emailId,
+      mailbox,
+      config.maxBytes,
+    );
+    const targetPath = await resolveAttachmentDownloadPath(config.dir, basename);
+    await writeDownloadFileAtomic(targetPath, content);
+    return { size, path: targetPath };
+  }
+
+  // -------------------------------------------------------------------------
   // Save all email attachments to a local directory
   // -------------------------------------------------------------------------
 

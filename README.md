@@ -8,7 +8,7 @@
 
 An MCP (Model Context Protocol) server providing comprehensive email capabilities via IMAP and SMTP.
 
-Enables AI assistants to read, search, send, manage, schedule, and analyze emails across multiple accounts. Exposes 52 tools, 7 prompts, and 6 resources over the MCP protocol with OAuth2 support _(experimental)_, email scheduling, calendar extraction, analytics, provider-aware label management, real-time IMAP IDLE watcher with AI-powered triage, instant verification-code catching with clipboard copy, customizable presets and static rules, and a guided setup wizard.
+Enables AI assistants to read, search, send, manage, schedule, and analyze emails across multiple accounts. Exposes 53 tools, 7 prompts, and 6 resources over the MCP protocol with OAuth2 support _(experimental)_, email scheduling, calendar extraction, analytics, provider-aware label management, real-time IMAP IDLE watcher with AI-powered triage, instant verification-code catching with clipboard copy, customizable presets and static rules, and a guided setup wizard.
 
 Built on the MCP TypeScript SDK v2 (spec revision 2026-07-28), it serves over **stdio** for local clients or **Streamable HTTP** for networked access — existing stdio configurations keep working unchanged.
 
@@ -639,7 +639,7 @@ save_to_sent = false    # file a copy of each sent message in the IMAP Sent fold
 auto_download = true  # save attachments locally when calendar events are created from emails
 
 [settings.attachment_download]
-# dir = "/data/attachments"  # unset (default) disables download_attachment's saveToDownloadDir
+# dir = "/data/attachments"  # unset (default) disables saveToDownloadDir on download_attachment / download_raw_email
 allowed_extensions = ["pdf", "png", "jpg", "jpeg", "webp", "tiff", "txt", "md", "doc", "docx", "odt", "xls", "xlsx", "csv"]
 max_bytes = 26214400  # 25 MB
 
@@ -765,7 +765,7 @@ For single-account setups (overrides config file):
 | `MCP_EMAIL_SEND_SAVE_TO_SENT` | `false` | `true` appends a copy of each sent message to the IMAP Sent folder |
 | `MCP_EMAIL_READ_ONLY` | `false` | `true` unregisters the mailbox-write tools (send, move, delete, labels, bulk). Calendar/Reminders writes, clipboard copy and config-writing tools stay available — it is a mailbox guard, not a global one. |
 | `MCP_EMAIL_SCHEDULER_SENT_RETENTION_DAYS` | `90` | Days of sent-email history to keep; `0` keeps everything |
-| `MCP_EMAIL_ATTACHMENT_DOWNLOAD_DIR` | — | Directory `download_attachment`'s `saveToDownloadDir` writes into; unset disables the option |
+| `MCP_EMAIL_ATTACHMENT_DOWNLOAD_DIR` | — | Directory `saveToDownloadDir` (`download_attachment`, `download_raw_email`) writes into; unset disables the option |
 | `MCP_EMAIL_ATTACHMENT_DOWNLOAD_ALLOWED_EXTENSIONS` | *(built-in list — see below)* | Comma-separated extension allowlist for saved attachments |
 | `MCP_EMAIL_ATTACHMENT_DOWNLOAD_MAX_BYTES` | `26214400` (25 MB) | Max attachment size `saveToDownloadDir` will write |
 
@@ -1172,7 +1172,10 @@ on disk rather than inlined into the conversation. The option is unavailable
 the config example above); `max_bytes` caps the size, independent of the
 5 MB base64 cap. Pass `saveAs` to choose the filename written there (a plain
 basename — no path separators); otherwise the attachment's own filename is
-sanitized and used. Running in Docker, point `dir` at a mounted volume shared
+sanitized and used. `download_raw_email` shares the same directory and
+`max_bytes` cap but always writes `.eml` (the extension allowlist does not
+apply; a `saveAs` must end in `.eml`), defaulting to
+`<account>-<mailbox>-<id>.eml`. Running in Docker, point `dir` at a mounted volume shared
 with whatever reads the files back, e.g. in `docker-compose.yml`:
 
 ```yaml
@@ -1230,6 +1233,7 @@ text; pass `html: true` to `forward_email` to also carry the original HTML.
 | `get_email_status` | Get read/flag/label state of an email without fetching the body |
 | `search_emails` | Search by keyword across subject, sender, and body; same bulk markers and optional preview as `list_emails` |
 | `download_attachment` | Download an email attachment by filename or MIME part id, base64-encoded or (if configured) saved to the server's attachment download directory |
+| `download_raw_email` | Download the full raw RFC 822 source of an email (headers, MIME parts, attachments — byte for byte), base64-encoded or (if configured) saved as `.eml` to the attachment download directory |
 | `find_email_folder` | Discover the real folder(s) an email resides in (resolves virtual folders) |
 | `extract_contacts` | Extract unique contacts from recent email headers |
 | `get_thread` | Reconstruct a conversation thread via References/In-Reply-To; same bulk markers |

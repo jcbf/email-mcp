@@ -17,6 +17,7 @@ vi.mock('./label.tool.js', () => ({ default: vi.fn() }));
 vi.mock('./locate.tool.js', () => ({ default: vi.fn() }));
 vi.mock('./mailboxes.tool.js', () => ({ default: vi.fn() }));
 vi.mock('./manage.tool.js', () => ({ default: vi.fn() }));
+vi.mock('./raw-email.tool.js', () => ({ default: vi.fn() }));
 vi.mock('./scheduler.tool.js', () => ({ default: vi.fn() }));
 vi.mock('./send.tool.js', () => ({ default: vi.fn() }));
 vi.mock('./templates.tool.js', () => ({
@@ -34,6 +35,7 @@ import registerEmailsTools from './emails.tool.js';
 import registerFolderTools from './folders.tool.js';
 import registerLabelTools from './label.tool.js';
 import registerManageTools from './manage.tool.js';
+import registerRawEmailTools from './raw-email.tool.js';
 import registerSchedulerTools from './scheduler.tool.js';
 import registerSendTools from './send.tool.js';
 import { registerTemplateWriteTools } from './templates.tool.js';
@@ -138,6 +140,7 @@ describe('registerAllTools', () => {
     // Read tools should still be registered
     expect(registerAccountsTools).toHaveBeenCalled();
     expect(registerEmailsTools).toHaveBeenCalled();
+    expect(registerRawEmailTools).toHaveBeenCalled();
     // Clipboard copy is a local convenience, not a mailbox write
     expect(registerVerificationTools).toHaveBeenCalled();
     // Write tools should NOT be registered

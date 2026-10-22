@@ -118,6 +118,53 @@ describe('Advanced Email Operations', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // download_raw_email
+  // ---------------------------------------------------------------------------
+
+  describe('downloadRawEmail', () => {
+    let downloadDir: string;
+
+    beforeEach(async () => {
+      downloadDir = await fs.realpath(mkdtempSync(join(tmpdir(), 'email-mcp-raw-it-')));
+    });
+
+    afterEach(() => {
+      rmSync(downloadDir, { recursive: true, force: true });
+    });
+
+    it('returns the full source, headers and encoded attachment included', async () => {
+      await seedEmailWithAttachment('raw.txt', 'Raw source attachment', {
+        subject: 'Raw source email',
+      });
+      await waitForDelivery();
+
+      const list = await services.imapService.listEmails(TEST_ACCOUNT_NAME, {
+        subject: 'Raw source email',
+      });
+      expect(list.items.length).toBeGreaterThanOrEqual(1);
+      const emailId = list.items[0]!.id;
+
+      const raw = await services.imapService.downloadRawEmail(TEST_ACCOUNT_NAME, emailId, 'INBOX');
+      const source = raw.content.toString('utf-8');
+
+      expect(source).toMatch(/^Subject: Raw source email\r?$/m);
+      expect(source).toMatch(/^Content-Type: multipart\/mixed/im);
+      expect(source).toContain('raw.txt');
+      expect(raw.size).toBe(raw.content.length);
+
+      const saved = await services.imapService.downloadRawEmailToDownloadDir(
+        TEST_ACCOUNT_NAME,
+        emailId,
+        'INBOX',
+        { dir: downloadDir, allowedExtensions: ['pdf'], maxBytes: 1024 * 1024 },
+      );
+
+      expect(saved.path).toBe(join(downloadDir, `${TEST_ACCOUNT_NAME}-INBOX-${emailId}.eml`));
+      expect(await fs.readFile(saved.path)).toEqual(raw.content);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // extract_contacts
   // ---------------------------------------------------------------------------
 

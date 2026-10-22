@@ -26,6 +26,7 @@ import registerLabelTools from './label.tool.js';
 import registerLocateTools from './locate.tool.js';
 import registerMailboxesTools from './mailboxes.tool.js';
 import registerManageTools from './manage.tool.js';
+import registerRawEmailTools from './raw-email.tool.js';
 import registerSchedulerTools from './scheduler.tool.js';
 import registerSendTools from './send.tool.js';
 import { registerTemplateReadTools, registerTemplateWriteTools } from './templates.tool.js';
@@ -59,6 +60,7 @@ export default function registerAllTools(server: McpServer, services: AppService
   registerMailboxesTools(server, imapService);
   registerEmailsTools(server, mailReadService, imapService);
   registerAttachmentTools(server, mailReadService, imapService, config.settings.attachmentDownload);
+  registerRawEmailTools(server, imapService, config.settings.attachmentDownload);
   registerContactsTools(server, imapService);
   registerThreadTools(server, mailReadService);
   registerTemplateReadTools(server, templateService);

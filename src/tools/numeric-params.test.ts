@@ -26,6 +26,7 @@ import registerLabelTools from './label.tool.js';
 import registerLocateTools from './locate.tool.js';
 import registerMailboxesTools from './mailboxes.tool.js';
 import registerManageTools from './manage.tool.js';
+import registerRawEmailTools from './raw-email.tool.js';
 import registerSchedulerTools from './scheduler.tool.js';
 import registerSendTools from './send.tool.js';
 import { registerTemplateReadTools, registerTemplateWriteTools } from './templates.tool.js';
@@ -74,6 +75,7 @@ const REGISTRATIONS: [register: (...args: never[]) => void, args: unknown[]][] =
   [registerMailboxesTools as never, fakes(1)],
   [registerEmailsTools as never, fakes(2)],
   [registerAttachmentTools as never, [fakeService(), fakeService(), attachmentDownloadConfigFake]],
+  [registerRawEmailTools as never, [fakeService(), attachmentDownloadConfigFake]],
   [registerContactsTools as never, fakes(1)],
   [registerThreadTools as never, fakes(1)],
   [registerTemplateReadTools as never, fakes(1)],
